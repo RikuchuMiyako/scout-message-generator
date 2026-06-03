@@ -1,0 +1,6 @@
+# Scout Message Generator dependencies
+# 最新のClaude API機能（adaptive thinking / output_config / prompt caching）を
+# 利用するため、anthropic SDK は新しめのバージョンを推奨します。
+anthropic>=0.69
+streamlit>=1.40
+pypdf>=5.0
