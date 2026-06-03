@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import hmac
 import os
 
 import anthropic
@@ -18,6 +19,48 @@ from src.pdf_utils import extract_text_from_pdf
 from src.profiles import list_profiles, load_profile, save_profile
 
 st.set_page_config(page_title="スカウトメール生成ツール", page_icon="✉️", layout="wide")
+
+
+# ---------------------------------------------------------------------------
+# 簡易ログイン（パスワードゲート）
+# ---------------------------------------------------------------------------
+def _app_password() -> str:
+    """st.secrets から共有パスワードを取得（未設定なら空文字）。"""
+    try:
+        return st.secrets.get("APP_PASSWORD", "")  # type: ignore[attr-defined]
+    except Exception:
+        return ""
+
+
+def check_password() -> bool:
+    """共有パスワードと照合する簡易ゲート。
+
+    APP_PASSWORD が未設定の場合は認証なしで通す（ローカル開発向け）。
+    単一の共有パスワードによる軽量な閲覧制限であり、ユーザー個別管理・監査ログ・
+    多要素認証はできない。社外秘データの本番運用では IAP/VPN 等の利用を推奨。
+    """
+    correct = _app_password()
+    if not correct:
+        return True  # パスワード未設定 → ゲート無効
+    if st.session_state.get("authenticated"):
+        return True
+
+    def _verify() -> None:
+        entered = st.session_state.get("pw", "")
+        if hmac.compare_digest(entered, correct):
+            st.session_state["authenticated"] = True
+            del st.session_state["pw"]  # 平文を残さない
+        else:
+            st.session_state["authenticated"] = False
+
+    st.text_input("パスワード", type="password", key="pw", on_change=_verify)
+    if st.session_state.get("authenticated") is False:
+        st.error("パスワードが違います。")
+    return False
+
+
+if not check_password():
+    st.stop()  # 認証が通るまで以降のUIを描画しない
 
 
 # ---------------------------------------------------------------------------
