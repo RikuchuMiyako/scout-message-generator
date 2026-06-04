@@ -21,3 +21,36 @@ def extract_text_from_pdf(data: bytes) -> str:
     reader = PdfReader(io.BytesIO(data))
     pages = [page.extract_text() or "" for page in reader.pages]
     return "\n".join(pages).strip()
+
+
+def extract_text_from_pptx(data: bytes) -> str:
+    """PPTX のバイト列からテキストを抽出して返す（採用ピッチ資料など）。"""
+    try:
+        from pptx import Presentation
+    except ImportError as exc:  # pragma: no cover - 依存未導入時の案内
+        raise RuntimeError(
+            "PPTX を読み取るには python-pptx が必要です。"
+            "`pip install python-pptx` を実行してください。"
+        ) from exc
+
+    prs = Presentation(io.BytesIO(data))
+    chunks: list[str] = []
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                text = shape.text_frame.text.strip()
+                if text:
+                    chunks.append(text)
+    return "\n".join(chunks).strip()
+
+
+def extract_document_text(filename: str, data: bytes) -> str:
+    """拡張子に応じて PDF / PPTX / テキストを判定して抽出する。"""
+    lower = (filename or "").lower()
+    if lower.endswith(".pdf"):
+        return extract_text_from_pdf(data)
+    if lower.endswith(".pptx"):
+        return extract_text_from_pptx(data)
+    # それ以外はプレーンテキストとして解釈
+    return data.decode("utf-8", errors="replace").strip()
+

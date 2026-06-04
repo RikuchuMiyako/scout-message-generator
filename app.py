@@ -15,7 +15,8 @@ import streamlit as st
 
 from src.generator import ScoutGenerator
 from src.models import MID_CAREER, NEW_GRAD, CompanyProfile, ScoutInputs
-from src.pdf_utils import extract_text_from_pdf
+from src.pdf_utils import extract_document_text, extract_text_from_pdf
+from src.profile_ai import generate_profile_from_sources
 from src.profiles import list_profiles, load_profile, save_profile
 
 st.set_page_config(page_title="スカウトメール生成ツール", page_icon="✉️", layout="wide")
@@ -99,44 +100,56 @@ def _text_or_pdf_input(label: str, key: str) -> str:
     return (extracted or pasted or "").strip()
 
 
-def _profile_from_form(prefix: str, base: CompanyProfile | None) -> CompanyProfile:
-    base = base or CompanyProfile(company_name="")
-    company_name = st.text_input("企業名", value=base.company_name, key=f"{prefix}_name")
-    industry = st.text_input("業界・事業内容", value=base.industry, key=f"{prefix}_ind")
-    culture = st.text_area(
-        "企業風土の要約（コーポレートサイト・採用ピッチ資料などから）",
-        value=base.culture, key=f"{prefix}_cul", height=120,
+def _load_profile_into_form(p: CompanyProfile) -> None:
+    """CompanyProfile の値をフォーム用の session_state キーに流し込む。
+
+    各ウィジェットは key のみで session_state を参照するため、ウィジェット生成前に
+    ここで値を設定しておくことで、プロファイル選択・AI生成の結果を反映できる。
+    """
+    st.session_state["prof_name"] = p.company_name
+    st.session_state["prof_ind"] = p.industry
+    st.session_state["prof_cul"] = p.culture
+    st.session_state["prof_rn"] = p.recruiter_name
+    st.session_state["prof_tone"] = p.tone
+    st.session_state["prof_rp"] = p.recruiter_personality
+    st.session_state["prof_sp"] = "\n".join(p.selling_points)
+    st.session_state["prof_ng"] = "\n".join(p.ng_expressions)
+    st.session_state["prof_notes"] = p.notes
+    st.session_state["prof_sources"] = dict(p.sources)
+
+
+def _profile_from_session() -> CompanyProfile:
+    """フォームの現在値から CompanyProfile を組み立てる。"""
+    return CompanyProfile(
+        company_name=st.session_state.get("prof_name", "").strip(),
+        industry=st.session_state.get("prof_ind", "").strip(),
+        culture=st.session_state.get("prof_cul", "").strip(),
+        recruiter_name=st.session_state.get("prof_rn", "").strip(),
+        tone=st.session_state.get("prof_tone", "").strip(),
+        recruiter_personality=st.session_state.get("prof_rp", "").strip(),
+        selling_points=[s.strip() for s in st.session_state.get("prof_sp", "").splitlines() if s.strip()],
+        ng_expressions=[s.strip() for s in st.session_state.get("prof_ng", "").splitlines() if s.strip()],
+        notes=st.session_state.get("prof_notes", "").strip(),
+        sources=st.session_state.get("prof_sources", {}),
     )
+
+
+def _render_profile_form() -> None:
+    st.text_input("企業名", key="prof_name")
+    st.text_input("業界・事業内容", key="prof_ind")
+    st.text_area("企業風土の要約（コーポレートサイト・採用ピッチ資料などから）",
+                 key="prof_cul", height=120)
     col1, col2 = st.columns(2)
     with col1:
-        recruiter_name = st.text_input("採用担当者名", value=base.recruiter_name,
-                                       key=f"{prefix}_rn")
+        st.text_input("採用担当者名", key="prof_rn")
     with col2:
-        tone = st.text_input("文体・トーンの指針", value=base.tone, key=f"{prefix}_tone",
-                             placeholder="例: 丁寧で誠実、ほどよくフランク")
-    recruiter_personality = st.text_area(
-        "担当者の性格・語り口（LINE WORKS トーク履歴などから）",
-        value=base.recruiter_personality, key=f"{prefix}_rp", height=100,
-    )
-    selling = st.text_area("訴求ポイント（1行に1つ）",
-                           value="\n".join(base.selling_points), key=f"{prefix}_sp",
-                           height=80)
-    ng = st.text_area("避けたい表現・NG事項（1行に1つ）",
-                      value="\n".join(base.ng_expressions), key=f"{prefix}_ng", height=80)
-    notes = st.text_area("補足", value=base.notes, key=f"{prefix}_notes", height=60)
-
-    return CompanyProfile(
-        company_name=company_name.strip(),
-        industry=industry.strip(),
-        culture=culture.strip(),
-        recruiter_name=recruiter_name.strip(),
-        recruiter_personality=recruiter_personality.strip(),
-        tone=tone.strip(),
-        selling_points=[s.strip() for s in selling.splitlines() if s.strip()],
-        ng_expressions=[s.strip() for s in ng.splitlines() if s.strip()],
-        sources=base.sources,
-        notes=notes.strip(),
-    )
+        st.text_input("文体・トーンの指針", key="prof_tone",
+                      placeholder="例: 丁寧で誠実、ほどよくフランク")
+    st.text_area("担当者の性格・語り口（LINE WORKS トーク履歴などから）",
+                 key="prof_rp", height=100)
+    st.text_area("訴求ポイント（1行に1つ）", key="prof_sp", height=80)
+    st.text_area("避けたい表現・NG事項（1行に1つ）", key="prof_ng", height=80)
+    st.text_area("補足", key="prof_notes", height=60)
 
 
 # ---------------------------------------------------------------------------
@@ -156,23 +169,91 @@ existing = list_profiles()
 options = ["＋ 新規作成"] + existing
 selected = st.sidebar.selectbox("プロファイルを選択", options)
 
-if selected == "＋ 新規作成":
-    current_profile = None
-else:
-    current_profile = load_profile(selected)
+# 起動直後・選択変更時に、選択したプロファイルをフォームへ読み込む（ウィジェット生成前）
+if st.session_state.get("loaded_profile_name") != selected:
+    st.session_state["loaded_profile_name"] = selected
+    if selected == "＋ 新規作成":
+        _load_profile_into_form(CompanyProfile(company_name=""))
+    else:
+        _load_profile_into_form(load_profile(selected) or CompanyProfile(company_name=""))
 
+# AI生成結果の保留読み込み（ボタン押下 → rerun 後にここで反映）
+if "pending_profile" in st.session_state:
+    _load_profile_into_form(st.session_state.pop("pending_profile"))
+
+# --- 資料からAIで自動生成 ---
+with st.sidebar.expander("🤖 資料からAIで自動生成", expanded=False):
+    st.caption("コーポレートサイト/エンゲージ本文・採用資料・LINE WORKSトークを"
+               "貼付/アップロードすると、AIが各項目を自動入力します。")
+    ai_corp = st.text_area("コーポレートサイト本文", key="ai_corp", height=80)
+    ai_recruit = st.text_area("リクルートサイト（エンゲージ）本文", key="ai_recruit", height=80)
+    pitch_files = st.file_uploader("採用ピッチ資料（PDF/PPTX・複数可）",
+                                   type=["pdf", "pptx"], accept_multiple_files=True,
+                                   key="ai_pitch_files")
+    ai_pitch_paste = st.text_area("（または）資料テキストを貼付", key="ai_pitch_paste",
+                                  height=60)
+    chat_file = st.file_uploader("LINE WORKS トーク履歴（.txt）", type=["txt"],
+                                 key="ai_chat_file")
+    ai_chat_paste = st.text_area("（または）トーク履歴を貼付", key="ai_chat_paste",
+                                 height=80)
+
+    if st.button("🤖 AIでプロファイル項目を生成", use_container_width=True):
+        if not api_key:
+            st.error("Anthropic API キーを設定してください。")
+        else:
+            pitch_text = ai_pitch_paste or ""
+            for f in pitch_files or []:
+                try:
+                    pitch_text += "\n" + extract_document_text(f.name, f.getvalue())
+                except Exception as exc:  # noqa: BLE001
+                    st.warning(f"{f.name} の読み取りに失敗: {exc}")
+            chat_text = ai_chat_paste or ""
+            if chat_file is not None:
+                chat_text += "\n" + chat_file.getvalue().decode("utf-8", errors="replace")
+
+            if not any([ai_corp.strip(), ai_recruit.strip(),
+                        pitch_text.strip(), chat_text.strip()]):
+                st.error("少なくとも1つの素材を入力してください。")
+            else:
+                with st.spinner("AIがプロファイルを生成中…"):
+                    try:
+                        generated = generate_profile_from_sources(
+                            company_name=st.session_state.get("prof_name", "").strip(),
+                            corporate=ai_corp,
+                            recruit=ai_recruit,
+                            pitch=pitch_text,
+                            chat=chat_text,
+                            sources=st.session_state.get("prof_sources", {}),
+                            client=anthropic.Anthropic(api_key=api_key),
+                        )
+                        st.session_state["pending_profile"] = generated
+                        st.session_state["ai_msg"] = (
+                            "AIで生成しました。下の編集欄に反映済みです。"
+                            "内容を確認・修正して保存してください。"
+                        )
+                        st.rerun()
+                    except anthropic.APIError as exc:
+                        st.error(f"API エラー: {exc}")
+
+# --- 編集 / 保存 ---
 with st.sidebar.expander("プロファイルを編集 / 作成", expanded=(selected == "＋ 新規作成")):
-    edited_profile = _profile_from_form("prof", current_profile)
+    msg = st.session_state.pop("ai_msg", None)
+    if msg:
+        st.success(msg)
+    _render_profile_form()
     if st.button("💾 プロファイルを保存", use_container_width=True):
-        if not edited_profile.company_name:
+        prof = _profile_from_session()
+        if not prof.company_name:
             st.error("企業名を入力してください。")
         else:
-            path = save_profile(edited_profile)
+            path = save_profile(prof)
             st.success(f"保存しました: {path.name}")
             st.rerun()
 
-# 生成に使うプロファイル（選択 or 編集中）
-active_profile = edited_profile if edited_profile.company_name else current_profile
+# 生成に使うプロファイル（フォームの現在値）
+active_profile = _profile_from_session()
+if not active_profile.company_name:
+    active_profile = None
 
 
 # ---------------------------------------------------------------------------
