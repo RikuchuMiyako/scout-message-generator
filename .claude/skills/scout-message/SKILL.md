@@ -20,10 +20,9 @@ description: >-
 - 新しい企業の素材（サイト本文・採用資料・トーク履歴）からプロファイルを作る
 
 ## 企業プロファイルの保存場所
-- 企業プロファイルは**作業中ディレクトリの `profiles/` 配下**に、企業名そのものを
+- 企業プロファイルは**リポジトリ直下の `profiles/` 配下**に、企業名そのものを
   ファイル名にした JSON で保存する（例: `profiles/株式会社サンプル.json`）。
-- 書式の参考として、プラグインにサンプルを同梱している:
-  `${CLAUDE_PLUGIN_ROOT}/profiles/株式会社サンプル.json`
+- 書式の参考として、サンプル `profiles/株式会社サンプル.json` を同梱している。
 
 ## 実行フロー
 
@@ -52,9 +51,9 @@ description: >-
 ## 企業プロファイルの新規作成・更新
 ユーザーが素材（コーポレート/エンゲージ本文、採用ピッチ資料 PDF/PPTX、
 LINE WORKS トーク履歴など）を提供した場合、`references/profile-schema.md` に従って
-内容を読み取り、作業中ディレクトリの `profiles/<企業名>.json` を作成・更新する。
+内容を読み取り、`profiles/<企業名>.json` を作成・更新する。
 - PDF は Read でそのまま読める。PPTX は次のコマンドで本文を抽出できる:
-  `python "${CLAUDE_PLUGIN_ROOT}/skills/scout-message/scripts/extract_pptx.py" <file.pptx>`
+  `python .claude/skills/scout-message/scripts/extract_pptx.py <file.pptx>`
 - 担当者の性格・語り口・文体は主に LINE WORKS トークの言葉づかいから推定する。
 - 素材に無い事実（数値・制度・固有名詞）は創作しない。不明な項目は空にする。
 

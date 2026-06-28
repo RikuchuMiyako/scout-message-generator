@@ -12,7 +12,7 @@
 
 ## 特長
 
-- **Skill 方式**: Cowork / Claude Code でスキルを呼び出すだけ。専用アプリ・API キー不要。
+- **Skill 方式**: リポジトリを Cowork / Claude Code で開くだけ。専用アプリ・API キー不要。
 - **企業プロファイル方式**: 企業風土・担当者の性格・文体指針を一度作成・保存すれば
   （`profiles/<企業名>.json`）、同一企業の複数スカウトで再利用できます。
 - **素材からのプロファイル作成**: コーポレートサイト/エンゲージ本文、採用ピッチ資料
@@ -20,48 +20,38 @@
   訴求点などを抽出して JSON を作成します。
 - **新卒 / 中途の書き分け**、**文字数指定**、**検索軸**（年齢帯・経験職種・居住地）対応。
 
-## インストール（プラグイン）
+## 利用方法（Claude Code on the web / Cowork）
 
-このリポジトリは Claude Code プラグイン兼マーケットプレイスとして構成されています。
-Cowork / Claude Code で次を実行するとインストールできます。
+このスキルは**プロジェクトスキル**として `.claude/skills/` に同梱されています。
+**このリポジトリを Cowork / Claude Code で開くだけで自動的に認識**され、追加の
+インストール操作は不要です（`/plugin` 等のコマンドは使いません）。
 
-```text
-/plugin marketplace add RikuchuMiyako/scout-message-generator
-/plugin install scout-message-generator@rikuchu-tools
-```
-
-インストール後、`scout-message` スキルがどのセッションからでも利用可能になります
-（スカウト文の作成を依頼すると自動的に起動。明示する場合は
-`/scout-message-generator:scout-message`）。
-
-> ローカルで開発・検証する場合は、リポジトリのパスを指定して追加します:
-> `/plugin marketplace add .`
+> Claude Code on the web は `/plugin` マーケットプレイスに対応していないため、
+> リポジトリ同梱のプロジェクトスキル方式（`.claude/skills/`）を採用しています。
 
 ## 使い方
 
-1. **スカウト作成を依頼する**
+1. このリポジトリを Cowork / Claude Code で開く。
+2. **スカウト作成を依頼する**
    例:「株式会社サンプル のスカウト文を書いて。中途エンジニア向け、約400文字。
    求人票と求職者情報はこれ（貼付 or PDF 添付）」
-2. Claude が作業中ディレクトリの `profiles/<企業名>.json` を読み、執筆ガイドに従って
-   本文を生成します。
-3. 出力は**スカウト文の本文のみ**（必要に応じて先頭に「件名: ...」の1行）。
+3. Claude が `profiles/<企業名>.json` を読み、執筆ガイドに従って本文を生成します。
+4. 出力は**スカウト文の本文のみ**（必要に応じて先頭に「件名: ...」の1行）。
 
 ### 企業プロファイルを新しく作る
 プロファイルが無い企業は、素材を渡して作成を依頼します。
 例:「新しい企業のプロファイルを作って。コーポレートサイト本文（貼付）、採用ピッチ資料
 （PDF/PPTX 添付）、LINE WORKS トーク履歴（貼付）はこちら」
 
-- PDF は Claude が直接読みます。PPTX は同梱の `scripts/extract_pptx.py` で抽出します。
+- PDF は Claude が直接読みます。PPTX は同梱の
+  `.claude/skills/scout-message/scripts/extract_pptx.py` で抽出します。
 - 担当者の性格・語り口・文体は主に LINE WORKS トークの言葉づかいから推定します。
 - 素材に無い事実は創作せず、不明な項目は空のままにします。確認後に保存します。
 
 ## 構成
 
 ```
-.claude-plugin/
-  plugin.json                   プラグインのマニフェスト
-  marketplace.json              マーケットプレイス定義（このリポジトリを配布）
-skills/scout-message/
+.claude/skills/scout-message/
   SKILL.md                      スキル本体（実行フロー・原則）
   references/
     writing-guide.md            執筆ガイド（構成・書き分け・NG・プロファイル反映）
@@ -75,9 +65,9 @@ profiles/
 ## 企業プロファイルのフォーマット
 
 `profiles/株式会社サンプル.json` が例です。**ファイル名は企業名そのもの**（日本語可）で
-作業中ディレクトリの `profiles/` に保存し、同一企業の複数スカウトで再利用します。
+`profiles/` に保存し、同一企業の複数スカウトで再利用します。
 各項目の定義と作成方針は
-`skills/scout-message/references/profile-schema.md` を参照してください。
+`.claude/skills/scout-message/references/profile-schema.md` を参照してください。
 
 主な情報源:
 
@@ -90,5 +80,5 @@ profiles/
 
 ```bash
 pip install python-pptx
-python skills/scout-message/scripts/extract_pptx.py <file.pptx>
+python .claude/skills/scout-message/scripts/extract_pptx.py <file.pptx>
 ```
