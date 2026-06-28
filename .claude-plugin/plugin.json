@@ -1,0 +1,10 @@
+{
+  "name": "scout-message-generator",
+  "description": "ダイレクトリクルーティング向けスカウトメール生成スキル。企業風土と採用担当者の人柄を反映したスカウト文を作成し、素材から企業プロファイルも作成できる。",
+  "version": "1.0.0",
+  "author": {
+    "name": "RikuchuMiyako"
+  },
+  "repository": "https://github.com/RikuchuMiyako/scout-message-generator",
+  "keywords": ["recruiting", "scout", "japanese", "hr"]
+}

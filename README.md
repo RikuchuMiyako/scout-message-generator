@@ -20,14 +20,30 @@
   訴求点などを抽出して JSON を作成します。
 - **新卒 / 中途の書き分け**、**文字数指定**、**検索軸**（年齢帯・経験職種・居住地）対応。
 
-## 使い方（Cowork / Claude Code）
+## インストール（プラグイン）
 
-このリポジトリを Cowork / Claude Code で開くと、`scout-message` スキルが利用可能になります。
+このリポジトリは Claude Code プラグイン兼マーケットプレイスとして構成されています。
+Cowork / Claude Code で次を実行するとインストールできます。
+
+```text
+/plugin marketplace add RikuchuMiyako/scout-message-generator
+/plugin install scout-message-generator@rikuchu-tools
+```
+
+インストール後、`scout-message` スキルがどのセッションからでも利用可能になります
+（スカウト文の作成を依頼すると自動的に起動。明示する場合は
+`/scout-message-generator:scout-message`）。
+
+> ローカルで開発・検証する場合は、リポジトリのパスを指定して追加します:
+> `/plugin marketplace add .`
+
+## 使い方
 
 1. **スカウト作成を依頼する**
-   例:「sample_company のスカウト文を書いて。中途エンジニア向け、約400文字。
+   例:「株式会社サンプル のスカウト文を書いて。中途エンジニア向け、約400文字。
    求人票と求職者情報はこれ（貼付 or PDF 添付）」
-2. Claude が `profiles/<企業名>.json` を読み、執筆ガイドに従って本文を生成します。
+2. Claude が作業中ディレクトリの `profiles/<企業名>.json` を読み、執筆ガイドに従って
+   本文を生成します。
 3. 出力は**スカウト文の本文のみ**（必要に応じて先頭に「件名: ...」の1行）。
 
 ### 企業プロファイルを新しく作る
@@ -42,7 +58,10 @@
 ## 構成
 
 ```
-.claude/skills/scout-message/
+.claude-plugin/
+  plugin.json                   プラグインのマニフェスト
+  marketplace.json              マーケットプレイス定義（このリポジトリを配布）
+skills/scout-message/
   SKILL.md                      スキル本体（実行フロー・原則）
   references/
     writing-guide.md            執筆ガイド（構成・書き分け・NG・プロファイル反映）
@@ -50,14 +69,15 @@
   scripts/
     extract_pptx.py             PPTX テキスト抽出ヘルパー
 profiles/
-  sample_company.json           企業プロファイルの例（保存形式）
+  株式会社サンプル.json          企業プロファイルの例（保存形式の参考）
 ```
 
 ## 企業プロファイルのフォーマット
 
-`profiles/sample_company.json` が例です。1社1ファイルで保存し、同一企業の複数スカウトで
-再利用します。各項目の定義と作成方針は
-`.claude/skills/scout-message/references/profile-schema.md` を参照してください。
+`profiles/株式会社サンプル.json` が例です。**ファイル名は企業名そのもの**（日本語可）で
+作業中ディレクトリの `profiles/` に保存し、同一企業の複数スカウトで再利用します。
+各項目の定義と作成方針は
+`skills/scout-message/references/profile-schema.md` を参照してください。
 
 主な情報源:
 
@@ -70,5 +90,5 @@ profiles/
 
 ```bash
 pip install python-pptx
-python .claude/skills/scout-message/scripts/extract_pptx.py <file.pptx>
+python skills/scout-message/scripts/extract_pptx.py <file.pptx>
 ```

@@ -1,8 +1,8 @@
 # 企業プロファイル スキーマと作成ガイド
 
-企業プロファイルは `profiles/<企業名>.json` に1社1ファイルで保存する。同一企業の
-複数スカウトで再利用する。ファイル名は企業名を英数字スネークケース等にしたもの
-（例: `株式会社サンプル` → `sample_company.json`）。
+企業プロファイルは作業中ディレクトリの `profiles/<企業名>.json` に1社1ファイルで保存
+する。同一企業の複数スカウトで再利用する。**ファイル名は企業名そのもの**（日本語可、
+例: `profiles/株式会社サンプル.json`）。
 
 ## JSON スキーマ
 
@@ -41,9 +41,10 @@
 
 ## 素材の読み取り方
 - **PDF**: Read ツールでそのまま読める。
-- **PPTX**: `scripts/extract_pptx.py <ファイルパス>` でテキストを抽出する。
+- **PPTX**: 次のコマンドでテキストを抽出する（初回は `pip install python-pptx`）:
+  `python "${CLAUDE_PLUGIN_ROOT}/skills/scout-message/scripts/extract_pptx.py" <file.pptx>`
 - **サイト本文・トーク履歴**: 貼付テキスト、または添付ファイルを Read で読む。
 
 ## 作成後
 作成・更新した内容をユーザーに要約提示し、確認・修正のうえ
-`profiles/<企業名>.json` に保存する。
+作業中ディレクトリの `profiles/<企業名>.json` に保存する。
