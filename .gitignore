@@ -6,8 +6,5 @@ __pycache__/
 venv/
 .env
 
-# Streamlit
-.streamlit/secrets.toml
-
 # OS
 .DS_Store
